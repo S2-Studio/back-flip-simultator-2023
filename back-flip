@@ -2,11 +2,12 @@
 
 import pygame
 import os
+import csv
 
 pygame.init()
 
 # Définir la taille de la fenêtre
-SCREEN_WIDTH = 1280
+SCREEN_WIDTH = 800
 SCREEN_HEIGHT = int(SCREEN_WIDTH * 0.8)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -16,15 +17,50 @@ pygame.display.set_caption("BACK FLIP SIMULATOR 2023")
 clock = pygame.time.Clock()
 FPS = 60
 
+date = 2060
+
 moving_left = False
 moving_right = False
 
+screen_scroll = 0
+bg_scroll = 0
+start_game = False
+pause_game = False
+draw_box = False
+
+base_font = pygame.font.SysFont('Bauhaus 93', 30)
+user_text = ''
+enter_date = 'Entrez une date pour remonter le temps :'
+
+start_img = pygame.image.load('button/start_btn.png').convert_alpha()
+exit_img = pygame.image.load('button/exit_btn.png').convert_alpha()
+reset_img = pygame.image.load('button/restart_btn.png').convert_alpha()
+text_box_img = pygame.image.load('button/text_box.png').convert_alpha()
+
 
 BG = (144, 201, 120)
+SCROLL_THRESH = 500
 GRAVITY = 0.75
+ROWS = 16
+COLS = 150
+TILE_SIZE = SCREEN_HEIGHT // ROWS
+TILE_TYPES = 21
+
+img_list = []
+for x in range(TILE_TYPES):
+    img = pygame.image.load(f'tile/{x}.png')
+    img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+    img_list.append(img)
 
 def draw_bg():
     screen.fill(BG)
+
+def reset_level():
+    data = []
+    for row in range(ROWS):
+        r = [-1] * COLS
+        data.append(r)
+    return data
 
 # Définir les personnages du jeu
 
@@ -57,6 +93,8 @@ class Player(pygame.sprite.Sprite):
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
 
     def update_action(self, new_action):
         if new_action != self.action:
@@ -76,6 +114,7 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0
 
     def move(self, moving_left, moving_right):
+        screen_scroll = 0
         dx = 0
         dy = 0
 
@@ -97,58 +136,205 @@ class Player(pygame.sprite.Sprite):
             self.vel_y
         dy += self.vel_y
 
-        if self.rect.bottom + dy > 300:
-            dy = 300 - self.rect.bottom
-            self.in_air = False
+        for tile in world.obstacle_list:
+            if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
+                dx = 0
+            if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                if self.vel_y < 0:
+                    self.vel_y = 0
+                    dy = tile[1].bottom - self.rect.top
+                elif self.vel_y >= 0:
+                    self.vel_y = 0
+                    self.in_air = False
+                    dy = tile[1].top - self.rect.bottom
+            
+        if self.char_type == 'player':
+            if self.rect.left + dx < 0 or self.rect.right + dx > SCREEN_WIDTH:
+                dx = 0
 
         self.rect.x += dx
         self.rect.y += dy
 
+        if self.rect.right > SCREEN_WIDTH - SCROLL_THRESH and bg_scroll < (world.level_length * TILE_SIZE) - SCREEN_WIDTH or self.rect.left < SCROLL_THRESH and bg_scroll > abs(dx):
+            self.rect.x -= dx
+            screen_scroll = -dx
+
+        return screen_scroll
+
     def draw(self):
     	screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
 
-player = Player('player',200, 200, 3, 5)
+class Button():
+    def __init__(self, x, y, image, scale):
+        width = image.get_width()
+        height = image.get_height()
+        self.image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+        self.clicked = False
+    
+    def draw(self, position):
+        action = False
+
+        if self.rect.collidepoint(position):
+            if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+                action = True
+                self.clicked = True
+
+        if pygame.mouse.get_pressed()[0] == 0:
+            self.clicked = False
+
+        screen.blit(self.image, (self.rect.x, self.rect.y))
+
+        return action
+
+class World():
+    def __init__(self):
+        self.obstacle_list = []
+    
+    def process_data(self, data):
+        self.level_length = len(data[0])
+        for y, row in enumerate(data):
+            for x, tile in enumerate(row):
+                if tile >= 0:
+                    img = img_list[tile]
+                    img_rect = img.get_rect()
+                    img_rect.x = x * TILE_SIZE
+                    img_rect.y = y * TILE_SIZE
+                    tile_data = (img, img_rect)
+                    if tile >= 0 and tile <= 8:
+                        self.obstacle_list.append(tile_data)
+        return player
+        
+    
+    def draw(self):
+        for tile in self.obstacle_list:
+            tile[1][0] += screen_scroll
+            screen.blit(tile[0], tile[1])
+
+start_button = Button(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 150, start_img, 1)
+exit_button = Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 50, exit_img, 1)
+reset_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, reset_img, 2)
+text_box = Button(SCREEN_WIDTH // 2 - 270, SCREEN_HEIGHT // 2 + 180, text_box_img, 2)
+
+present = []
+for row in range(ROWS):
+    r = [-1] * COLS
+    present.append(r)
+
+with open(f'present.csv', newline='') as file:
+    reader = csv.reader(file, delimiter=',')
+    for x, row in enumerate(reader):
+        for y, tile in enumerate(row):
+            present[x][y] = int(tile)
+
+past = []
+for row in range(ROWS):
+    r = [-1] * COLS
+    past.append(r)
+
+with open(f'past.csv', newline='') as file:
+    reader = csv.reader(file, delimiter=',')
+    for x, row in enumerate(reader):
+        for y, tile in enumerate(row):
+            past[x][y] = int(tile)
+
+world = World()
+
+player = Player('player', 100, SCREEN_HEIGHT - 130, 1.65, 5)
+
+world.process_data(present)
 
 # Boucle principale du jeu
 running = True
 while running:
     clock.tick(FPS)
 
-    draw_bg()
+    pos = pygame.mouse.get_pos()
 
-    player.update_animation()
-    player.draw()
+    if start_game == False:
+        screen.fill(BG)
+        if start_button.draw(pos):
+            start_game = True
+        if exit_button.draw(pos):
+            running = False
+    elif pause_game == True:
+        screen.fill(BG)
+        if reset_button.draw(pos):
+            pause_game = False
+    
+    else:
 
-    if player.alive:
-        if player.in_air:
-            player.update_action(2)#2: jump
-        elif moving_left or moving_right:
-            player.update_action(1)#1: run
-        else:
-            player.update_action(0)#0: idle
-        player.move(moving_left, moving_right)
+        print(bg_scroll)
 
-    # Gérer les événements
+        draw_bg()
+
+        world.draw()
+
+        player.update_animation()
+        player.draw()
+
+        date_text = base_font.render(f'Date: {date}', True, (255, 255, 255))
+        screen.blit(date_text, (10, 10))
+
+        if player.alive:
+            if player.in_air:
+                player.update_action(2)#2: jump
+            elif moving_left or moving_right:
+                player.update_action(1)#1: run
+            else:
+                player.update_action(0)#0: idle
+            screen_scroll = player.move(moving_left, moving_right)
+            bg_scroll -= screen_scroll
+
+    if draw_box == True:
+        if text_box.draw(pos):
+            draw_box = False
+        text_base = base_font.render(enter_date, True, (255, 255, 255))
+        text_surface = base_font.render(user_text, True, (255, 255, 255))
+        screen.blit(text_base, (text_box.rect.x + 55, text_box.rect.y + 30))
+        screen.blit(text_surface, (text_box.rect.x + 55, text_box.rect.y + 60))
+
+        # Gérer les événements
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_q:
-                moving_left = True
-            if event.key == pygame.K_d:
-                moving_right = True
-            if event.key == pygame.K_ESCAPE:
-                running = False
-            if event.key == pygame.K_z:
-                player.jump = True
         
+        if event.type == pygame.KEYDOWN:
+            if draw_box == True:
+                if event.key == pygame.K_BACKSPACE:
+                    user_text = user_text[:-1]
+                else:
+                    if event.unicode.isnumeric():
+                        user_text += event.unicode
+                if event.key == pygame.K_RETURN:  
+                    date = user_text
+                    if int(date) < 2020:
+                        world.process_data(past)
+                    draw_box = False
+                    user_text = ''
+            else:
+                if event.key == pygame.K_q:
+                    moving_left = True
+                if event.key == pygame.K_d:
+                    moving_right = True
+                if event.key == pygame.K_ESCAPE:
+                    pause_game = True
+                if event.key == pygame.K_SPACE:
+                    player.jump = True
+                if event.key == pygame.K_e:
+                    player.shoot()
+                if event.key == pygame.K_f:
+                    draw_box = True
+            
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_q:
                 moving_left = False
             if event.key == pygame.K_d:
                 moving_right = False
-    # Mettre à jour l'affichage
+            if event.key == pygame.K_SPACE:
+                player.jump = False
+        # Mettre à jour l'affichage
     pygame.display.update()
 
 # Quitter Pygame
