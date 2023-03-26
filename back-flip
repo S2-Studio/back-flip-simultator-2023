@@ -22,6 +22,8 @@ date = 2060
 moving_left = False
 moving_right = False
 
+talk = False
+
 screen_scroll = 0
 bg_scroll = 0
 start_game = False
@@ -187,6 +189,26 @@ class Button():
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
         return action
+    
+def draw_text(text, font, text_col, x, y):
+    img = font.render(text, True, text_col)
+    screen.blit(img, (x, y))
+    
+class Pnj(pygame.sprite.Sprite):
+    def __init__(self, nb, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.nb = nb
+        self.image = pygame.image.load(f'tile/{nb}.png')
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + TILE_SIZE // 2, y + (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        self.rect.x += screen_scroll
+        if pygame.sprite.collide_rect(self, player):
+            if talk == False:
+                draw_text('Press E to talk', base_font, (255, 255, 255), self.rect.x + 20, self.rect.y - 30)
+            elif talk == True:
+                draw_text('Press E to close', base_font, (255, 255, 255), self.rect.x + 20, self.rect.y - 30)
 
 class World():
     def __init__(self):
@@ -204,6 +226,12 @@ class World():
                     tile_data = (img, img_rect)
                     if tile >= 0 and tile <= 8:
                         self.obstacle_list.append(tile_data)
+                    elif tile == 16:
+                        pnj = Pnj('16', x * TILE_SIZE, y * TILE_SIZE - 5)
+                        pnj_group.add(pnj)
+                    elif tile == 17:
+                        pnj = Pnj('17', x * TILE_SIZE, y * TILE_SIZE - 5)
+                        pnj_group.add(pnj)
         return player
 
 
@@ -219,6 +247,8 @@ start_button = Button(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 150, start_i
 exit_button = Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 50, exit_img, 1)
 reset_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, reset_img, 2)
 text_box = Button(SCREEN_WIDTH // 2 - 270, SCREEN_HEIGHT // 2 + 180, text_box_img, 2)
+
+pnj_group = pygame.sprite.Group()
 
 present = []
 for row in range(ROWS):
@@ -270,6 +300,9 @@ while running:
         draw_bg()
 
         world.draw()
+
+        pnj_group.update()
+        pnj_group.draw(screen)
 
         player.update_animation()
         player.draw()
@@ -332,7 +365,7 @@ while running:
                 if event.key == pygame.K_SPACE:
                     player.jump = True
                 if event.key == pygame.K_e:
-                    player.shoot()
+                    talk = True
                 if event.key == pygame.K_f:
                     draw_box = True
 
@@ -343,6 +376,8 @@ while running:
                 moving_right = False
             if event.key == pygame.K_SPACE:
                 player.jump = False
+            if event.key == pygame.K_e:
+                talk = False
         # Mettre à jour l'affichage
     pygame.display.update()
 
