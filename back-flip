@@ -308,7 +308,10 @@ while running:
                     if event.unicode.isnumeric():
                         user_text += event.unicode
                 if event.key == pygame.K_RETURN:
+                    last_date = date
                     date = user_text
+                    if date == '':
+                        date = last_date
                     if int(date) < 2020:
                         screen_scroll =- bg_scroll
                         world.destroy()
