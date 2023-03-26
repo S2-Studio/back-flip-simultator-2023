@@ -212,6 +212,9 @@ class World():
             tile[1][0] += screen_scroll
             screen.blit(tile[0], tile[1])
 
+    def destroy(self):
+        del self.obstacle_list[:]
+
 start_button = Button(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 150, start_img, 1)
 exit_button = Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 50, exit_img, 1)
 reset_button = Button(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, reset_img, 2)
@@ -308,8 +311,8 @@ while running:
                     date = user_text
                     if int(date) < 2020:
                         screen_scroll =- bg_scroll
+                        world.destroy()
                         world.process_data(past)
-                        print(bg_scroll)
                     draw_box = False
                     user_text = ''
             else:
