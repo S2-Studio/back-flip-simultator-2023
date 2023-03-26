@@ -101,7 +101,7 @@ class Player(pygame.sprite.Sprite):
             self.action = new_action
             self.frame_index = 0
             self.update_time = pygame.time.get_ticks()
-    
+
     def update_animation(self):
         ANIMATION_COOLDOWN = 100
 
@@ -109,7 +109,7 @@ class Player(pygame.sprite.Sprite):
         if pygame.time.get_ticks() - self.update_time > ANIMATION_COOLDOWN:
             self.update_time = pygame.time.get_ticks()
             self.frame_index += 1
-        
+
         if self.frame_index >= len(self.animation_list[self.action]):
             self.frame_index = 0
 
@@ -147,7 +147,7 @@ class Player(pygame.sprite.Sprite):
                     self.vel_y = 0
                     self.in_air = False
                     dy = tile[1].top - self.rect.bottom
-            
+
         if self.char_type == 'player':
             if self.rect.left + dx < 0 or self.rect.right + dx > SCREEN_WIDTH:
                 dx = 0
@@ -172,7 +172,7 @@ class Button():
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
         self.clicked = False
-    
+
     def draw(self, position):
         action = False
 
@@ -191,7 +191,7 @@ class Button():
 class World():
     def __init__(self):
         self.obstacle_list = []
-    
+
     def process_data(self, data):
         self.level_length = len(data[0])
         for y, row in enumerate(data):
@@ -205,8 +205,8 @@ class World():
                     if tile >= 0 and tile <= 8:
                         self.obstacle_list.append(tile_data)
         return player
-        
-    
+
+
     def draw(self):
         for tile in self.obstacle_list:
             tile[1][0] += screen_scroll
@@ -262,11 +262,8 @@ while running:
         screen.fill(BG)
         if reset_button.draw(pos):
             pause_game = False
-    
+
     else:
-
-        print(bg_scroll)
-
         draw_bg()
 
         world.draw()
@@ -299,7 +296,7 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        
+
         if event.type == pygame.KEYDOWN:
             if draw_box == True:
                 if event.key == pygame.K_BACKSPACE:
@@ -307,10 +304,12 @@ while running:
                 else:
                     if event.unicode.isnumeric():
                         user_text += event.unicode
-                if event.key == pygame.K_RETURN:  
+                if event.key == pygame.K_RETURN:
                     date = user_text
                     if int(date) < 2020:
+                        screen_scroll =- bg_scroll
                         world.process_data(past)
+                        print(bg_scroll)
                     draw_box = False
                     user_text = ''
             else:
@@ -326,7 +325,7 @@ while running:
                     player.shoot()
                 if event.key == pygame.K_f:
                     draw_box = True
-            
+
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_q:
                 moving_left = False
