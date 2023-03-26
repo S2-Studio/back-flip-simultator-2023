@@ -313,6 +313,10 @@ while running:
                         screen_scroll =- bg_scroll
                         world.destroy()
                         world.process_data(past)
+                    elif int(date) > 2020:
+                        screen_scroll =- bg_scroll
+                        world.destroy()
+                        world.process_data(present)
                     draw_box = False
                     user_text = ''
             else:
