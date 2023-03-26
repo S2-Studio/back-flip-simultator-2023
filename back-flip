@@ -6,6 +6,8 @@ import csv
 
 pygame.init()
 
+pygame.mixer.init()
+
 # Définir la taille de la fenêtre
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = int(SCREEN_WIDTH * 0.8)
@@ -29,15 +31,24 @@ bg_scroll = 0
 start_game = False
 pause_game = False
 draw_box = False
+dialogue_box = False
+can_talk = False
 
 base_font = pygame.font.SysFont('Bauhaus 93', 30)
 user_text = ''
-enter_date = 'Entrez une date pour remonter le temps :'
+enter_date = 'Entrez une date pour changer de monde :'
+
+dialogue = ["Bonjour, je cherche mon père", "Tu es dans le mauvais monde", "Je suis désolé", "Bozo", "Merci", "Au revoir"]
+dialogue_present = ["Bonjour, je cherche mon père", "Va à Epitech", "C'est où ?", "Je sais pas", "Merci", "Au revoir"]
+
+dialogue_index = 0
 
 start_img = pygame.image.load('button/start_btn.png').convert_alpha()
 exit_img = pygame.image.load('button/exit_btn.png').convert_alpha()
 reset_img = pygame.image.load('button/restart_btn.png').convert_alpha()
 text_box_img = pygame.image.load('button/text_box.png').convert_alpha()
+
+pygame.mixer.music.load('music/superleson.mp3')
 
 
 BG = (144, 201, 120)
@@ -204,11 +215,14 @@ class Pnj(pygame.sprite.Sprite):
 
     def update(self):
         self.rect.x += screen_scroll
+        can_talk = False
         if pygame.sprite.collide_rect(self, player):
+            can_talk = True
             if talk == False:
                 draw_text('Press E to talk', base_font, (255, 255, 255), self.rect.x + 20, self.rect.y - 30)
             elif talk == True:
                 draw_text('Press E to close', base_font, (255, 255, 255), self.rect.x + 20, self.rect.y - 30)
+        return can_talk
 
 class World():
     def __init__(self):
@@ -278,6 +292,8 @@ player = Player('player', 100, SCREEN_HEIGHT - 130, 1.65, 5)
 
 world.process_data(present)
 
+pygame.mixer.music.play(-1)
+
 # Boucle principale du jeu
 running = True
 while running:
@@ -301,7 +317,7 @@ while running:
 
         world.draw()
 
-        pnj_group.update()
+        can_talk = pnj_group.update()
         pnj_group.draw(screen)
 
         player.update_animation()
@@ -327,6 +343,17 @@ while running:
         text_surface = base_font.render(user_text, True, (255, 255, 255))
         screen.blit(text_base, (text_box.rect.x + 55, text_box.rect.y + 30))
         screen.blit(text_surface, (text_box.rect.x + 55, text_box.rect.y + 60))
+    
+    if dialogue_box == True:
+        if text_box.draw(pos):
+            dialogue_box = False
+        print(dialogue_present[dialogue_index])
+        if int(date) > 2020:
+            text_base = base_font.render(dialogue_present[dialogue_index], True, (255, 255, 255))
+            screen.blit(text_base, (text_box.rect.x + 55, text_box.rect.y + 30))
+        elif int(date) < 2020:
+            text_base = base_font.render(dialogue[dialogue_index], True, (255, 255, 255))
+            screen.blit(text_base, (text_box.rect.x + 55, text_box.rect.y + 30))
 
         # Gérer les événements
     for event in pygame.event.get():
@@ -334,7 +361,18 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
-            if draw_box == True:
+            if dialogue_box == True:
+                if event.key == pygame.K_RETURN:
+                    dialogue_index += 1
+                    if int(date) > 2020:
+                        if dialogue_index == len(dialogue_present):
+                            dialogue_box = False
+                            dialogue_index = 0
+                    elif int(date) < 2020:
+                        if dialogue_index == len(dialogue):
+                            dialogue_box = False
+                            dialogue_index = 0
+            elif draw_box == True:
                 if event.key == pygame.K_BACKSPACE:
                     user_text = user_text[:-1]
                 else:
@@ -366,6 +404,7 @@ while running:
                     player.jump = True
                 if event.key == pygame.K_e:
                     talk = True
+                    dialogue_box = True
                 if event.key == pygame.K_f:
                     draw_box = True
 
@@ -376,10 +415,9 @@ while running:
                 moving_right = False
             if event.key == pygame.K_SPACE:
                 player.jump = False
-            if event.key == pygame.K_e:
-                talk = False
         # Mettre à jour l'affichage
     pygame.display.update()
 
 # Quitter Pygame
+pygame.mixer.music.stop()
 pygame.quit()
